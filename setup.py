@@ -119,7 +119,7 @@ def update_abstract():
 
 # -------------------------------
 def backup_nvim():
-    current_date = datetime.today().strftime("%Y-%m-%d_%T")
+    current_date = datetime.now().strftime("%Y-%m-%d_%T")
     if Path(NVIM_CONF_PATH).exists():
         subprocess.run(['cp', '-rf', 'nvim', f'nvim-old_{current_date}'], cwd=CONFIG)
         print(f"\nyour old config: {NVIM_CONF_PATH}_{current_date}\n")
@@ -128,12 +128,12 @@ def backup_nvim():
 
 # -------------------------------
 def clean():
-    if Path(NVIM_DATA_DIR+"/site/pack/packer").exists():
-        subprocess.run(["rm", "-rf", NVIM_DATA_DIR+"/site/pack/packer"])
-        print("\nREMOVED: ", NVIM_DATA_DIR+"/site/pack/packer")
-    if Path(NVIM_CONF_PATH+"/plugin").exists():
-        subprocess.run(["rm", "-rf", NVIM_CONF_PATH+"/plugin"])
-        print("\nREMOVED: ", NVIM_CONF_PATH+"/plugin")
+    if Path(f"{NVIM_DATA_DIR}/site/pack/packer").exists():
+        subprocess.run(["rm", "-rf", f"{NVIM_DATA_DIR}/site/pack/packer"])
+        print("\nREMOVED: ", f"{NVIM_DATA_DIR}/site/pack/packer")
+    if Path(f"{NVIM_CONF_PATH}/plugin").exists():
+        subprocess.run(["rm", "-rf", f"{NVIM_CONF_PATH}/plugin"])
+        print("\nREMOVED: ", f"{NVIM_CONF_PATH}/plugin")
 # -------------------------------
 
 
@@ -141,11 +141,11 @@ def clean():
 def abstract_git():
     """check if abstract exist as a git project"""
 
-    if Path(NVIM_CONF_PATH).exists():
-        if Path(f"{NVIM_CONF_PATH}/.__abstract__").is_file():
-            if Path(f"{NVIM_CONF_PATH}/.git").exists():
-                return True
-    return False
+    return bool(
+        Path(NVIM_CONF_PATH).exists()
+        and Path(f"{NVIM_CONF_PATH}/.__abstract__").is_file()
+        and Path(f"{NVIM_CONF_PATH}/.git").exists()
+    )
 # -------------------------------
 
 
@@ -159,10 +159,7 @@ def need_to_clone_abstract():
        Path(f"{SCRIPT_PATH}/.__abstract__").is_file():
         return False
 
-    if abstract_git():
-        return False
-
-    return True
+    return not abstract_git()
 # -------------------------------
 
 
@@ -177,7 +174,7 @@ def compile_nvim():
 # -------------------------------
 def setup_packer():
     nvim_plugin_dir = str(f"{NVIM_DATA_DIR}/site/pack/packer/start")
-    packer_dir = nvim_plugin_dir+"/packer.nvim"
+    packer_dir = f"{nvim_plugin_dir}/packer.nvim"
     print("\nsetting up packer...")
 
     if not Path(nvim_plugin_dir).exists():
@@ -214,25 +211,21 @@ def main():
     if update == 1 and abstract_git():
         update_abstract()
 
+    elif need_to_clone_abstract():
+        print("\n")
+        clone_repro(CONFIG, "https://github.com/Abstract-IDE/Abstract", "nvim")
+
+    elif str(SCRIPT_PATH) == str(NVIM_CONF_PATH):
+        update_abstract()
+
+    elif Path(f"{SCRIPT_PATH}/setup.py").is_file() and Path(f"{SCRIPT_PATH}/.__abstract__").is_file():
+        # remove ~/.config/nvim/ to prevent depth parent copy(eg: ~/.config/nvim/nvim)
+        subprocess.run(["rm", "-rf", NVIM_CONF_PATH])
+        print("\ncopying config...")
+        subprocess.run(["cp", "-rf", SCRIPT_PATH, NVIM_CONF_PATH])
+
     else:
-        if need_to_clone_abstract():
-            print("\n")
-            clone_repro(CONFIG, "https://github.com/Abstract-IDE/Abstract", "nvim")
-
-        else:
-            # prevent copying or removing if setup.up is running from ~/.config/nvim/
-            if str(SCRIPT_PATH) != str(NVIM_CONF_PATH):
-                if Path(f"{SCRIPT_PATH}/setup.py").is_file() and Path(f"{SCRIPT_PATH}/.__abstract__").is_file():
-                    # remove ~/.config/nvim/ to prevent depth parent copy(eg: ~/.config/nvim/nvim)
-                    subprocess.run(["rm", "-rf", NVIM_CONF_PATH])
-                    print("\ncopying config...")
-                    subprocess.run(["cp", "-rf", SCRIPT_PATH, NVIM_CONF_PATH])
-
-                else:
-                    update_abstract()
-
-            else:
-                update_abstract()
+        update_abstract()
 
     # compile configs
     try:
